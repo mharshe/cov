@@ -269,8 +269,9 @@ file from object file's path extracted from the \"compile_commands.json\"."
     (when (and compile-commands (file-exists-p compile-commands))
       (let* ((file-cmd (cl-find-if
                         (lambda (entry)
-                          (equal (file-truename (cdr (assq 'file entry)))
-                                 (expand-file-name file-name file-dir)))
+                          (equal (file-local-name (file-truename (cdr (assq 'file entry))))
+                                 (file-local-name (expand-file-name file-name file-dir))))
+                          ;; (message "compile_commands file is : %s" compile-commands)
                         (json-read-file compile-commands)))
              (command (cdr (assq 'command file-cmd)))
              (directory (cdr (assq 'directory file-cmd))))
@@ -287,7 +288,11 @@ file from object file's path extracted from the \"compile_commands.json\"."
                                    "\\.o\\)")
                                   command)
                              (match-string-no-properties 1 command)))
-                 (gcov-file (expand-file-name (file-name-with-extension obj-file ".gcov") directory)))
+                 (gcda-filepattern (expand-file-name (file-name-with-extension obj-file (concat ".gcda." file-name)) (concat (file-remote-p file-dir) directory)))
+                 (gcov-filepattern (concat gcda-filepattern "*.gcov"))
+                 (gcov-file (car (file-expand-wildcards gcov-filepattern)))
+                 )
+            ;; (message "gcov file exists: %s " (file-exists-p gcov-file)))
             ;; If file doesn't exists, return nil, so we can try other paths/functions
             ;; from `cov-coverage-file-paths'
             (when (file-exists-p gcov-file)
@@ -681,7 +686,7 @@ it if necessary, or reloading if the file has changed."
 
         (add-hook 'kill-buffer-hook 'cov-kill-buffer-hook nil t)
         ;; Find file coverage.
-        (cdr (assoc (file-truename (buffer-file-name))
+        (cdr (assoc (file-local-name (file-truename (buffer-file-name)))
                     (cov-data-coverage stored-data)))))))
 
 (defun cov--load-coverage (coverage file &rest ignore-current)
